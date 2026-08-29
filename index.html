@@ -1350,15 +1350,21 @@ async function createTrip(){
   const travelers = Number(document.getElementById('f-trav').value)||1;
   if(!destination || !start_date){ toast('Συμπλήρωσε προορισμό και ημερομηνία'); return; }
   if(end_date < start_date){ toast('Η ημερομηνία αναχώρησης δεν μπορεί να είναι πριν την άφιξη'); return; }
+  const { data: userData, error: userErr } = await sb.auth.getUser();
+  if(userErr || !userData || !userData.user){
+    toast('⚠️ Η σύνδεσή σου έληξε ή δεν επικυρώνεται (' + (userErr? userErr.message : 'no user') + '). Αποσύνδεση/επανασύνδεση απαιτείται.');
+    return;
+  }
+  const ownerId = userData.user.id;
   const draft = { start_date, end_date, likes:[...itinFormLikes], style:itinFormStyle, poi:null };
   const days = buildTripDays(draft);
   const { data, error } = await sb.from('rtt_trips').insert({
-    owner_id: session.user.id, destination, start_date, end_date, budget, travelers,
+    owner_id: ownerId, destination, start_date, end_date, budget, travelers,
     style: itinFormStyle, likes: itinFormLikes, days
   }).select().single();
-  if(error){ toast('Σφάλμα: '+error.message); return; }
+  if(error){ toast('Σφάλμα (uid='+ownerId.slice(0,8)+'…): '+error.message); return; }
   currentTrip = data;
-  members = [{id:session.user.id, name:profile.display_name}];
+  members = [{id:ownerId, name:profile.display_name}];
   expenses=[]; bookings=[]; packing=[];
   subscribeRealtime();
   toast('Το πρόγραμμα δημιουργήθηκε! 🎉');
